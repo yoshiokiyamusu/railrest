@@ -7,7 +7,8 @@ import {
     getEmployee,
     getEmployees,
     updateEmployee, 
-    get_UtubeComments,  
+    clasify_UtubeComments,
+    
   } from "../controllers/employees.controller.js";
 
 const router = Router()
@@ -21,6 +22,8 @@ router.delete('/employees/:id',deleteEmployee);
 
 
 
-router.get('/utube',get_UtubeComments);
+
+router.get('/comments',clasify_UtubeComments);
+
 
 export default router

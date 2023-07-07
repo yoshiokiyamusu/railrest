@@ -2,17 +2,21 @@ import { pool } from "../db.js";
 import { google } from 'googleapis';
 import fs from 'fs';
 
+import { Open_ai_organization, Open_ai_api_key, Youtube_key } from "../config.js";
+
+
+
 import { Configuration, OpenAIApi } from "openai";
 const configuration = new Configuration({
-    organization: "org-RC4oh3WHEh7cSAS9AAYe6V1g",
-    apiKey: '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',
+    organization: Open_ai_organization,
+    apiKey: Open_ai_api_key, 
 });
 const openai = new OpenAIApi(configuration);
 
 
 const youtube = google.youtube({
     version: 'v3',
-    auth:'AIzaSyAtYbKE0oTNvUdW_Ujgl2IVmU9h61s-Ry4'
+    auth:Youtube_key
 });
 
 //Functions!!//
@@ -98,7 +102,7 @@ export const updateEmployee = async (req, res) => {
   }
 };
 
-
+//Tomar comentarios de youtube y hacer insert en MySQL
 export const load_UtubeComments = async (req, res) => { 
     try {
         const utcomArray = [];
@@ -113,11 +117,12 @@ export const load_UtubeComments = async (req, res) => {
             utcomArray.push(unis_array);
         }
         //console.log(utcomArray);
-       
+       /*
         const valuesTrial = [
             ['a','a2','-'],
             ['b','b2','-']
         ]
+        */
        const [rows] = await pool.query("INSERT INTO nx_utubecom (iden, comentario_det,criteria1 ) VALUES  ?",[utcomArray]);
        console.log(rows);
 
@@ -133,7 +138,7 @@ async function getYoutubeComments(){
 	return new Promise((resolve, reject) => {
 		youtube.commentThreads.list({
             part:'snippet',
-            videoId:'ZjTIEO_Qe7w',
+            videoId:'WL5XBs_ha3g',
 			maxResults: 100
 		}, (err, res) => {
 			if(err) reject(err);
@@ -144,25 +149,76 @@ async function getYoutubeComments(){
 }
 
 //Get YouTube Comments//
-
+//Trial Only
+/*
 export const get_UtubeComments = async (req, res) => { 
   try {
-
-    let comments = await getYoutubeComments();
-    for(let i = 0; i < 5; i++){ // comments.length
-
+    
+    let comments = await getYoutubeComments();   console.log(comments.length);
+    
+    for(let i = 0; i < 10; i++){ // comments.length
+      console.log(i);
+      console.log(comments[i].snippet.topLevelComment.snippet.textOriginal);
+     
       const response = await openai.createCompletion({
-        model: "text-davinci-003",
-        prompt: `Tell me if the comment is something related to a positive view on economic forecast or is it informative or is it negative comment also give me a short description of the comment: + ${comments[i].snippet.topLevelComment.snippet.textOriginal}\n` ,
+        model: "text-davinci-003",   
+        prompt: `Please tell me if the following comment is a question: + ${comments[i].snippet.topLevelComment.snippet.textOriginal}\n` ,   
         max_tokens: 7,
         temperature: 0,
         });
       
+      console.log(response.data.choices[i]); 
       console.log(response.data.choices[0].text);
-
+      
     }
 
   } catch (error) {
     return res.status(500).json({ message: "Something goes wrong" });
+  }
+}
+*/
+
+
+
+
+
+
+//Tomar los comentarios una vez ya en Mysql
+export const getCommentVal = async (req, res) => {
+  try {
+    const [rows] = await pool.query("SELECT id, comentario_det FROM nx_utubecom");
+    return rows; //para que sea consumido por otra funcion
+    //res.json(rows); //para renderizar la respuesta
+  } catch (error) {
+    return res.status(500).json({ message: "Something goes wrong" });
+  }
+};
+
+export const clasify_UtubeComments = async (req, res) => { 
+  try {
+    const comments = await getCommentVal();  
+    console.log(comments.length);
+
+    for(let i = 0; i < comments.length; i++){ // comments.length
+      //console.log(comments[i].comentario_det);
+     
+      const response = await openai.createCompletion({
+        model: "text-davinci-003",    
+        prompt: `Please tell me if the following comment is a question: + ${comments[i].comentario_det}\n` ,   
+        max_tokens: 7,
+        temperature: 0,
+      });
+      
+      //console.log(comments[i].comentario_det + ' * ChatGPT: ' + response.data.choices[0].text);
+
+      const [result] = await pool.query(
+        "UPDATE nx_utubecom SET criteria1 = IFNULL(?, criteria1) WHERE id = ?",
+        [response.data.choices[0].text, comments[i].id]
+      );
+      
+    }//End for-loop
+    return  res.status(200).json({ message: "Data Operation Done"})
+  } catch (error) {
+    return res.status(500).json({ message: "error" });
   }
 }

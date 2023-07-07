@@ -1,7 +1,9 @@
 import { Configuration, OpenAIApi } from "openai";
+import { Open_ai_organization, Open_ai_api_key, Youtube_key } from "./config.js";
+
 const configuration = new Configuration({
-    organization: "org-RC4oh3WHEh7cSAS9AAYe6V1g",
-    apiKey: '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',
+    organization: Open_ai_organization,
+    apiKey: Open_ai_api_key,
 });
 const openai = new OpenAIApi(configuration);
 
